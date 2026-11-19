@@ -1,0 +1,30 @@
+{
+  "name": "chat-room",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter @chat/web --filter @chat/server dev",
+    "build": "pnpm --filter @chat/shared build && pnpm --filter @chat/server build && pnpm --filter @chat/web build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm --filter @chat/server test",
+    "test:integration": "pnpm --filter @chat/server test:integration",
+    "test:pagination": "pnpm --filter @chat/server test:pagination",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "db:generate": "pnpm --filter @chat/server prisma:generate",
+    "db:migrate": "pnpm --filter @chat/server prisma:migrate",
+    "db:deploy": "pnpm --filter @chat/server prisma:deploy",
+    "db:studio": "pnpm --filter @chat/server prisma:studio",
+    "db:seed": "pnpm --filter @chat/server db:seed",
+    "infra:up": "docker compose up -d mysql redis minio minio-init",
+    "infra:down": "docker compose down"
+  },
+  "devDependencies": {
+    "prettier": "^3.6.2",
+    "typescript": "~5.9.3"
+  }
+}

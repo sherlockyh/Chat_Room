@@ -1,0 +1,142 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum RoomType {
+  GROUP
+  DIRECT
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  FILE
+}
+
+enum RequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+/// 用户账号与公开资料。
+model User {
+  id           Int             @id @default(autoincrement())
+  username     String          @unique @db.VarChar(32)
+  passwordHash String          @map("password_hash") @db.VarChar(255)
+  nickname     String          @db.VarChar(50)
+  avatar       String?         @db.VarChar(512)
+  createdAt    DateTime        @default(now()) @map("created_at")
+  updatedAt    DateTime        @updatedAt @map("updated_at")
+  friendships  Friendship[]    @relation("FriendshipOwner")
+  befriendedBy Friendship[]    @relation("FriendshipTarget")
+  ownedRooms   Chatroom[]
+  memberships  UserChatroom[]
+  messages     ChatHistory[]
+  sentRequests FriendRequest[] @relation("RequestSender")
+  requests     FriendRequest[] @relation("RequestReceiver")
+  favorites    Favorite[]
+
+  @@map("users")
+}
+
+/// 有向好友关系；接受申请时应在同一事务中写入双向记录。
+model Friendship {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  friendId  Int      @map("friend_id")
+  remark    String?  @db.VarChar(50)
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation("FriendshipOwner", fields: [userId], references: [id], onDelete: Cascade)
+  friend    User     @relation("FriendshipTarget", fields: [friendId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, friendId])
+  @@index([friendId])
+  @@map("friendship")
+}
+
+model Chatroom {
+  id        Int            @id @default(autoincrement())
+  name      String         @db.VarChar(80)
+  type      RoomType       @default(GROUP)
+  ownerId   Int            @map("owner_id")
+  directKey String?        @unique @map("direct_key") @db.VarChar(50)
+  createdAt DateTime       @default(now()) @map("created_at")
+  updatedAt DateTime       @updatedAt @map("updated_at")
+  owner     User           @relation(fields: [ownerId], references: [id])
+  members   UserChatroom[]
+  messages  ChatHistory[]
+
+  @@index([ownerId])
+  @@map("chatroom")
+}
+
+model UserChatroom {
+  id       Int      @id @default(autoincrement())
+  userId   Int      @map("user_id")
+  roomId   Int      @map("room_id")
+  joinedAt DateTime @default(now()) @map("joined_at")
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  room     Chatroom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roomId])
+  @@index([roomId])
+  @@map("user_chatroom")
+}
+
+model ChatHistory {
+  id              Int         @id @default(autoincrement())
+  roomId          Int         @map("room_id")
+  senderId        Int         @map("sender_id")
+  content         String      @db.Text
+  type            MessageType @default(TEXT)
+  clientMessageId String?     @map("client_message_id") @db.VarChar(36)
+  objectKey       String?     @map("object_key") @db.VarChar(255)
+  fileName        String?     @map("file_name") @db.VarChar(255)
+  mimeType        String?     @map("mime_type") @db.VarChar(100)
+  fileSize        Int?        @map("file_size")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  room            Chatroom    @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  sender          User        @relation(fields: [senderId], references: [id])
+  favorites       Favorite[]
+
+  @@unique([senderId, clientMessageId])
+  @@index([roomId, id])
+  @@index([senderId])
+  @@map("chat_history")
+}
+
+model FriendRequest {
+  id         Int           @id @default(autoincrement())
+  senderId   Int           @map("sender_id")
+  receiverId Int           @map("receiver_id")
+  message    String?       @db.VarChar(200)
+  status     RequestStatus @default(PENDING)
+  createdAt  DateTime      @default(now()) @map("created_at")
+  updatedAt  DateTime      @updatedAt @map("updated_at")
+  sender     User          @relation("RequestSender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver   User          @relation("RequestReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@unique([senderId, receiverId])
+  @@index([receiverId, status, id])
+  @@map("friend_request")
+}
+
+model Favorite {
+  id        Int         @id @default(autoincrement())
+  userId    Int         @map("user_id")
+  historyId Int         @map("history_id")
+  createdAt DateTime    @default(now()) @map("created_at")
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  history   ChatHistory @relation(fields: [historyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, historyId])
+  @@index([historyId])
+  @@index([userId, id])
+  @@map("favorite")
+}
